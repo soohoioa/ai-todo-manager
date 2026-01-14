@@ -1,23 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { google } from '@ai-sdk/google';
-import { generateObject } from 'ai';
-import { z } from 'zod';
-import type { AnalyzeTodosResponse, TodoAnalysis } from '@/types/ai';
+import { NextRequest, NextResponse } from "next/server";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { generateObject } from "ai";
+import { z } from "zod";
+import type { AnalyzeTodosResponse, TodoAnalysis } from "@/types/ai";
 
 /**
  * AI 분석 결과 스키마
  */
 const analysisSchema = z.object({
-  summary: z.string().describe('전체 할 일에 대한 간결한 요약 (완료율, 전체 개수 등)'),
+  summary: z
+    .string()
+    .describe("전체 할 일에 대한 간결한 요약 (완료율, 전체 개수 등)"),
   urgentTasks: z
     .array(z.string())
-    .describe('긴급하게 처리해야 할 작업 제목 목록 (최대 5개)'),
+    .describe("긴급하게 처리해야 할 작업 제목 목록 (최대 5개)"),
   insights: z
     .array(z.string())
-    .describe('할 일 패턴과 현황에 대한 인사이트 (3-5개, 구체적이고 실행 가능한 내용)'),
+    .describe(
+      "할 일 패턴과 현황에 대한 인사이트 (3-5개, 구체적이고 실행 가능한 내용)"
+    ),
   recommendations: z
     .array(z.string())
-    .describe('생산성 향상을 위한 구체적인 추천 사항 (3-5개, 실행 가능한 조언)'),
+    .describe(
+      "생산성 향상을 위한 구체적인 추천 사항 (3-5개, 실행 가능한 조언)"
+    ),
 });
 
 /**
@@ -35,13 +41,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json<AnalyzeTodosResponse>(
         {
           success: false,
-          error: '유효한 할 일 목록이 필요합니다.',
+          error: "유효한 할 일 목록이 필요합니다.",
         },
         { status: 400 }
       );
     }
 
-    if (!period || !['today', 'week'].includes(period)) {
+    if (!period || !["today", "week"].includes(period)) {
       return NextResponse.json<AnalyzeTodosResponse>(
         {
           success: false,
@@ -56,10 +62,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json<AnalyzeTodosResponse>({
         success: true,
         data: {
-          summary: period === 'today' ? '오늘 등록된 할 일이 없습니다.' : '이번 주 등록된 할 일이 없습니다.',
+          summary:
+            period === "today"
+              ? "오늘 등록된 할 일이 없습니다."
+              : "이번 주 등록된 할 일이 없습니다.",
           urgentTasks: [],
-          insights: ['아직 할 일을 추가하지 않으셨네요.', '새로운 할 일을 추가해보세요!'],
-          recommendations: ['할 일을 추가하여 체계적으로 관리해보세요.', 'AI 생성 기능을 활용하면 더 쉽게 할 일을 만들 수 있습니다.'],
+          insights: [
+            "아직 할 일을 추가하지 않으셨네요.",
+            "새로운 할 일을 추가해보세요!",
+          ],
+          recommendations: [
+            "할 일을 추가하여 체계적으로 관리해보세요.",
+            "AI 생성 기능을 활용하면 더 쉽게 할 일을 만들 수 있습니다.",
+          ],
         },
       });
     }
@@ -67,11 +82,13 @@ export async function POST(request: NextRequest) {
     // 3. API 키 확인
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     if (!apiKey) {
-      console.error('[AI Analyze] GOOGLE_GENERATIVE_AI_API_KEY 환경 변수가 설정되지 않았습니다.');
+      console.error(
+        "[AI Analyze] GOOGLE_GENERATIVE_AI_API_KEY 환경 변수가 설정되지 않았습니다."
+      );
       return NextResponse.json<AnalyzeTodosResponse>(
         {
           success: false,
-          error: 'AI 서비스 설정이 완료되지 않았습니다.',
+          error: "AI 서비스 설정이 완료되지 않았습니다.",
         },
         { status: 500 }
       );
@@ -81,29 +98,43 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     const kstOffset = 9 * 60; // UTC+9
     const kstTime = new Date(now.getTime() + kstOffset * 60 * 1000);
-    const currentDate = kstTime.toISOString().split('T')[0];
-    const currentTime = kstTime.toTimeString().split(' ')[0].slice(0, 5);
-    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+    const currentDate = kstTime.toISOString().split("T")[0];
+    const currentTime = kstTime.toTimeString().split(" ")[0].slice(0, 5);
+    const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
     const dayOfWeek = dayNames[kstTime.getUTCDay()];
 
     // 5. 상세 통계 계산
     const totalTodos = todos.length;
     const completedTodos = todos.filter((t) => t.completed).length;
     const incompleteTodos = totalTodos - completedTodos;
-    const completionRate = totalTodos > 0 ? ((completedTodos / totalTodos) * 100).toFixed(1) : '0.0';
-    
+    const completionRate =
+      totalTodos > 0 ? ((completedTodos / totalTodos) * 100).toFixed(1) : "0.0";
+
     // 우선순위별 통계
-    const highPriority = todos.filter((t) => t.priority === 'high').length;
-    const mediumPriority = todos.filter((t) => t.priority === 'medium').length;
-    const lowPriority = todos.filter((t) => t.priority === 'low').length;
-    
-    const highCompleted = todos.filter((t) => t.priority === 'high' && t.completed).length;
-    const mediumCompleted = todos.filter((t) => t.priority === 'medium' && t.completed).length;
-    const lowCompleted = todos.filter((t) => t.priority === 'low' && t.completed).length;
-    
-    const highCompletionRate = highPriority > 0 ? ((highCompleted / highPriority) * 100).toFixed(1) : '0.0';
-    const mediumCompletionRate = mediumPriority > 0 ? ((mediumCompleted / mediumPriority) * 100).toFixed(1) : '0.0';
-    const lowCompletionRate = lowPriority > 0 ? ((lowCompleted / lowPriority) * 100).toFixed(1) : '0.0';
+    const highPriority = todos.filter((t) => t.priority === "high").length;
+    const mediumPriority = todos.filter((t) => t.priority === "medium").length;
+    const lowPriority = todos.filter((t) => t.priority === "low").length;
+
+    const highCompleted = todos.filter(
+      (t) => t.priority === "high" && t.completed
+    ).length;
+    const mediumCompleted = todos.filter(
+      (t) => t.priority === "medium" && t.completed
+    ).length;
+    const lowCompleted = todos.filter(
+      (t) => t.priority === "low" && t.completed
+    ).length;
+
+    const highCompletionRate =
+      highPriority > 0
+        ? ((highCompleted / highPriority) * 100).toFixed(1)
+        : "0.0";
+    const mediumCompletionRate =
+      mediumPriority > 0
+        ? ((mediumCompleted / mediumPriority) * 100).toFixed(1)
+        : "0.0";
+    const lowCompletionRate =
+      lowPriority > 0 ? ((lowCompleted / lowPriority) * 100).toFixed(1) : "0.0";
 
     // 마감일 관련 통계
     const todosWithDueDate = todos.filter((t) => t.due_date).length;
@@ -112,12 +143,12 @@ export async function POST(request: NextRequest) {
       return new Date(t.due_date) < new Date(currentDate);
     });
     const overdueCount = overdueTodos.length;
-    
+
     const dueTodayCount = todos.filter((t) => {
       if (!t.due_date || t.completed) return false;
-      return t.due_date.split('T')[0] === currentDate;
+      return t.due_date.split("T")[0] === currentDate;
     }).length;
-    
+
     const dueThisWeekCount = todos.filter((t) => {
       if (!t.due_date || t.completed) return false;
       const dueDate = new Date(t.due_date);
@@ -130,19 +161,21 @@ export async function POST(request: NextRequest) {
     const categoryCount: Record<string, number> = {};
     const categoryCompleted: Record<string, number> = {};
     todos.forEach((t) => {
-      t.category.forEach((cat) => {
+      t.category.forEach((cat: string) => {
         categoryCount[cat] = (categoryCount[cat] || 0) + 1;
         if (t.completed) {
           categoryCompleted[cat] = (categoryCompleted[cat] || 0) + 1;
         }
       });
     });
-    
-    const categoryStats = Object.entries(categoryCount).map(([cat, count]) => {
-      const completed = categoryCompleted[cat] || 0;
-      const rate = ((completed / count) * 100).toFixed(1);
-      return `${cat} ${count}개 (완료 ${completed}개, ${rate}%)`;
-    }).join(', ');
+
+    const categoryStats = Object.entries(categoryCount)
+      .map(([cat, count]: [string, number]) => {
+        const completed = categoryCompleted[cat] || 0;
+        const rate = ((completed / count) * 100).toFixed(1);
+        return `${cat} ${count}개 (완료 ${completed}개, ${rate}%)`;
+      })
+      .join(", ");
 
     // 요일별 분포 (생성일 기준)
     const dayDistribution: Record<string, number> = {};
@@ -160,13 +193,13 @@ export async function POST(request: NextRequest) {
       const hour = new Date(t.due_date).getHours();
       return hour >= 6 && hour < 12;
     }).length;
-    
+
     const afternoonCount = todos.filter((t) => {
       if (!t.due_date) return false;
       const hour = new Date(t.due_date).getHours();
       return hour >= 12 && hour < 18;
     }).length;
-    
+
     const eveningCount = todos.filter((t) => {
       if (!t.due_date) return false;
       const hour = new Date(t.due_date).getHours();
@@ -176,22 +209,33 @@ export async function POST(request: NextRequest) {
     // 6. 할 일 목록을 텍스트로 변환
     const todosText = todos
       .map((todo, idx) => {
-        const status = todo.completed ? '✅ 완료' : '⏳ 미완료';
-        const priority = todo.priority === 'high' ? '🔴 높음' : todo.priority === 'medium' ? '🟡 보통' : '🟢 낮음';
-        const dueDate = todo.due_date ? `마감: ${todo.due_date}` : '마감일 없음';
-        const categories = todo.category.length > 0 ? `[${todo.category.join(', ')}]` : '';
-        
-        return `${idx + 1}. ${status} | ${priority} | ${todo.title} ${categories} | ${dueDate}`;
+        const status = todo.completed ? "✅ 완료" : "⏳ 미완료";
+        const priority =
+          todo.priority === "high"
+            ? "🔴 높음"
+            : todo.priority === "medium"
+            ? "🟡 보통"
+            : "🟢 낮음";
+        const dueDate = todo.due_date
+          ? `마감: ${todo.due_date}`
+          : "마감일 없음";
+        const categories =
+          todo.category.length > 0 ? `[${todo.category.join(", ")}]` : "";
+
+        return `${idx + 1}. ${status} | ${priority} | ${
+          todo.title
+        } ${categories} | ${dueDate}`;
       })
-      .join('\n');
+      .join("\n");
 
     // 7. Gemini API 호출
-    const model = google('gemini-2.0-flash-exp', {
+    const google = createGoogleGenerativeAI({
       apiKey,
     });
+    const model = google("gemini-2.0-flash-exp");
 
-    const periodText = period === 'today' ? '오늘' : '이번 주';
-    const isToday = period === 'today';
+    const periodText = period === "today" ? "오늘" : "이번 주";
+    const isToday = period === "today";
 
     const result = await generateObject({
       model,
@@ -213,21 +257,27 @@ export async function POST(request: NextRequest) {
   * 낮음: ${lowPriority}개 중 ${lowCompleted}개 완료 (${lowCompletionRate}%)
 
 ⏰ 시간 관리 분석:
-- 마감일 설정: ${todosWithDueDate}개 (전체의 ${totalTodos > 0 ? ((todosWithDueDate / totalTodos) * 100).toFixed(1) : '0'}%)
-- 기한 초과: ${overdueCount}개 ${overdueCount > 0 ? '⚠️' : '✅'}
+- 마감일 설정: ${todosWithDueDate}개 (전체의 ${
+        totalTodos > 0
+          ? ((todosWithDueDate / totalTodos) * 100).toFixed(1)
+          : "0"
+      }%)
+- 기한 초과: ${overdueCount}개 ${overdueCount > 0 ? "⚠️" : "✅"}
 - 오늘 마감: ${dueTodayCount}개
 - 이번 주 마감: ${dueThisWeekCount}개
 - 시간대별 분포: 오전 ${morningCount}개, 오후 ${afternoonCount}개, 저녁 ${eveningCount}개
 
 📁 카테고리별 분석:
-${categoryStats || '카테고리 미지정'}
+${categoryStats || "카테고리 미지정"}
 
 📝 할 일 상세 목록:
 ${todosText}
 
 🎯 정교한 분석 요구사항:
 
-${isToday ? `
+${
+  isToday
+    ? `
 📌 **오늘의 요약 특화 분석**:
 
 1. **summary** (오늘의 진행 상황):
@@ -285,14 +335,21 @@ ${isToday ? `
    - 카테고리 간 균형 조정
    - 예: "업무 작업이 많네요. 개인 시간도 챙기는 것을 잊지 마세요."
 
-` : `
+`
+    : `
 📊 **이번 주 요약 특화 분석**:
 
 1. **summary** (이번 주 전체 평가):
    - 주간 완료율과 전반적 진행 상황
    - 이번 주의 생산성 수준 평가
    - 다음 주를 위한 희망적 메시지
-   - 예: "이번 주 ${totalTodos}개의 할 일 중 ${completedTodos}개를 완료하셨네요! ${completionRate}%의 완료율은 ${parseFloat(completionRate) >= 70 ? '매우 훌륭한' : parseFloat(completionRate) >= 50 ? '좋은' : '개선 가능한'} 수준입니다."
+   - 예: "이번 주 ${totalTodos}개의 할 일 중 ${completedTodos}개를 완료하셨네요! ${completionRate}%의 완료율은 ${
+        parseFloat(completionRate) >= 70
+          ? "매우 훌륭한"
+          : parseFloat(completionRate) >= 50
+          ? "좋은"
+          : "개선 가능한"
+      } 수준입니다."
 
 2. **urgentTasks** (이번 주 내 긴급 작업):
    - 이번 주 내 마감 작업
@@ -313,7 +370,11 @@ ${isToday ? `
    - 주중 vs 주말 작업 분포
    - 완료하기 쉬운 작업과 어려운 작업의 특징
    - 시간대별 업무 집중도 분석
-   - 예: "업무 카테고리 작업이 주간 활동의 ${categoryCount['업무'] ? ((categoryCount['업무'] / totalTodos) * 100).toFixed(0) : '0'}%를 차지합니다. 일과 삶의 균형을 고려해보세요."
+   - 예: "업무 카테고리 작업이 주간 활동의 ${
+     categoryCount["업무"]
+       ? ((categoryCount["업무"] / totalTodos) * 100).toFixed(0)
+       : "0"
+   }%를 차지합니다. 일과 삶의 균형을 고려해보세요."
    
    **⏱️ 마감일 관리 및 시간 패턴 (1-2개)**:
    - 마감일 준수율 평가
@@ -359,7 +420,8 @@ ${isToday ? `
    - 완벽주의 탈피 조언
    - 성장 마인드셋 격려
    - 예: "${completionRate}%의 완료율, 정말 대단하세요! 완벽을 추구하기보다 꾸준함을 목표로 하면 스트레스가 줄어들 거예요."
-`}
+`
+}
 
 💬 **문체 가이드라인** (반드시 준수):
 - 자연스럽고 친근한 한국어 사용
@@ -380,7 +442,7 @@ ${isToday ? `
 6. 동기부여와 격려를 잊지 않기`,
     });
 
-    console.log('[AI Analyze] 분석 완료:', {
+    console.log("[AI Analyze] 분석 완료:", {
       period,
       totalTodos,
       completedTodos,
@@ -392,29 +454,33 @@ ${isToday ? `
       success: true,
       data: result.object as TodoAnalysis,
     });
-  } catch (error: any) {
-    console.error('[AI Analyze] 분석 실패:', error);
+  } catch (error: unknown) {
+    console.error("[AI Analyze] 분석 실패:", error);
 
     // 에러 타입에 따른 상세 처리
-    if (error?.message?.includes('API key') || error?.message?.includes('authentication')) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (
+      errorMessage.includes("API key") ||
+      errorMessage.includes("authentication")
+    ) {
       return NextResponse.json<AnalyzeTodosResponse>(
         {
           success: false,
-          error: 'AI 서비스 인증에 실패했습니다.',
+          error: "AI 서비스 인증에 실패했습니다.",
         },
         { status: 401 }
       );
     }
 
     if (
-      error?.message?.includes('quota') ||
-      error?.message?.includes('rate limit') ||
-      error?.message?.includes('429')
+      errorMessage.includes("quota") ||
+      errorMessage.includes("rate limit") ||
+      errorMessage.includes("429")
     ) {
       return NextResponse.json<AnalyzeTodosResponse>(
         {
           success: false,
-          error: 'AI 서비스 사용량을 초과했습니다. 잠시 후 다시 시도해주세요.',
+          error: "AI 서비스 사용량을 초과했습니다. 잠시 후 다시 시도해주세요.",
         },
         { status: 429 }
       );
@@ -423,7 +489,7 @@ ${isToday ? `
     return NextResponse.json<AnalyzeTodosResponse>(
       {
         success: false,
-        error: '할 일 분석 중 오류가 발생했습니다. 다시 시도해주세요.',
+        error: "할 일 분석 중 오류가 발생했습니다. 다시 시도해주세요.",
       },
       { status: 500 }
     );
