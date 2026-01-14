@@ -51,6 +51,8 @@ interface TodoFormProps {
   onCancel?: () => void;
   /** 제출 중 상태 */
   isSubmitting?: boolean;
+  /** AI 생성 다이얼로그 열기 핸들러 */
+  onAIGenerate?: () => void;
 }
 
 /**

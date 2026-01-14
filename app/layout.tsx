@@ -14,6 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  // 메타데이터 베이스 URL 설정
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
+  
   // 기본 메타데이터
   title: {
     default: "AI 할 일 관리 서비스",

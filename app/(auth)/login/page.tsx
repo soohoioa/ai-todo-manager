@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckSquare, Mail, Lock, Sparkles, AlertCircle, CheckCircle } from 'lucide-react';
@@ -14,10 +14,10 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/components/providers/AuthProvider';
 
 /**
- * 로그인 페이지 컴포넌트
+ * 로그인 폼 컴포넌트
  * Supabase Auth를 사용한 이메일/비밀번호 로그인 기능을 제공합니다.
  */
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -309,3 +309,21 @@ export default function LoginPage() {
   );
 }
 
+/**
+ * 로그인 페이지 컴포넌트
+ * Suspense 경계로 래핑하여 useSearchParams() 사용
+ */
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+          <p className="mt-2 text-sm text-muted-foreground">로딩 중...</p>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
+  );
+}

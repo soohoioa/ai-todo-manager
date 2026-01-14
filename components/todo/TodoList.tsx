@@ -2,7 +2,7 @@
 
 import { CheckSquare } from 'lucide-react';
 import { TodoCard } from './TodoCard';
-import { Empty } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
@@ -71,12 +71,17 @@ export const TodoList = ({
   if (todos.length === 0) {
     return (
       <div className="w-full max-w-md mx-auto p-8">
-        <Empty
-          icon={<CheckSquare className="h-16 w-16 text-muted-foreground" />}
-          title="등록된 할 일이 없습니다"
-          description="새로운 할 일을 추가하거나 AI로 생성해보세요"
-        >
-          {emptyAction}
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia>
+              <CheckSquare className="h-16 w-16 text-muted-foreground" />
+            </EmptyMedia>
+            <EmptyTitle>등록된 할 일이 없습니다</EmptyTitle>
+            <EmptyDescription>
+              새로운 할 일을 추가하거나 AI로 생성해보세요
+            </EmptyDescription>
+          </EmptyHeader>
+          {emptyAction && <EmptyContent>{emptyAction}</EmptyContent>}
         </Empty>
       </div>
     );
