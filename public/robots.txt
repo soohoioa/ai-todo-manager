@@ -1,0 +1,34 @@
+# AI 할 일 관리 서비스 - Robots.txt
+
+# 모든 크롤러 허용
+User-agent: *
+Allow: /
+
+# 크롤링 제외 경로
+Disallow: /api/
+Disallow: /login
+Disallow: /signup
+
+# 사이트맵 위치
+Sitemap: https://your-domain.com/sitemap.xml
+
+# 크롤링 속도 제한 (초 단위)
+Crawl-delay: 1
+
+# Google Bot 특별 설정
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+
+# Bing Bot 특별 설정
+User-agent: Bingbot
+Allow: /
+Disallow: /api/
+
+# 이미지 크롤링
+User-agent: Googlebot-Image
+Allow: /
+
+# 모바일 크롤링
+User-agent: Googlebot-Mobile
+Allow: /
